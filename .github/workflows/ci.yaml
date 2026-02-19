@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  lint-validate-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set Up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install esphome==2026.1.5 yamllint
+
+      - name: Prepare ESPHome Secrets (CI Ephemeral)
+        run: |
+          API_KEY="$(openssl rand -base64 32)"
+          OTA_PASSWORD="$(openssl rand -hex 16)"
+          cat > esphome/secrets.yaml <<EOF
+          wifi_ap_password: "hvplc-setup-1234"
+          api_key: "${API_KEY}"
+          ota_password: "${OTA_PASSWORD}"
+          ota_firmware_base_url: "https://github.com/${{ github.repository }}/releases/latest/download"
+          EOF
+
+      - name: ESPHome Config Validate
+        run: |
+          esphome config esphome/stamplc_humidifier.yaml
+
+      - name: ESPHome Compile Check
+        run: |
+          esphome compile esphome/stamplc_humidifier.yaml
+
+      - name: YAML Lint
+        run: |
+          cat > /tmp/yamllint-ci.yaml <<'EOF'
+          extends: default
+          ignore: |
+            .git/
+            .specstory/
+            .cache/
+            artifacts/
+            .tmp_gha_logs_*/
+            esphome/.esphome/
+            esphome/secrets.yaml
+            esphome/components/stamplc_m5gfx/libs/
+          rules:
+            line-length:
+              max: 160
+              level: warning
+            document-start: disable
+            truthy: disable
+            empty-lines:
+              max: 1
+              max-start: 0
+              max-end: 1
+          EOF
+          yamllint -c /tmp/yamllint-ci.yaml .

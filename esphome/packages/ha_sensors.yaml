@@ -1,0 +1,45 @@
+# Home Assistant Sensor Imports
+# Entity states are imported for stamplc_m5gfx rendering.
+
+sensor:
+  - platform: homeassistant
+    id: ha_indoor_humidity
+    entity_id: sensor.hvplc_indoor_humidity_mean
+
+  - platform: homeassistant
+    id: ha_target_humidity
+    entity_id: sensor.hvplc_target_humidity
+
+  - platform: homeassistant
+    id: ha_outdoor_temp
+    entity_id: sensor.hvplc_outdoor_temperature
+
+  - platform: homeassistant
+    id: ha_hourly_runtime
+    entity_id: sensor.hvplc_relay_on_time_last_hour_minutes
+
+binary_sensor:
+  - platform: homeassistant
+    id: ha_interlock_ok
+    entity_id: binary_sensor.hvplc_hvac_interlock_ok
+
+  - platform: homeassistant
+    id: ha_demand
+    entity_id: binary_sensor.hvplc_humidity_demand
+
+  - platform: homeassistant
+    id: ha_sensors_healthy
+    entity_id: binary_sensor.hvplc_critical_sensors_healthy
+
+  - platform: homeassistant
+    id: ha_runtime_cap_ok
+    entity_id: binary_sensor.hvplc_runtime_cap_ok
+
+text_sensor:
+  - platform: homeassistant
+    id: ha_humidity_mode
+    entity_id: input_select.hvplc_humidity_mode
+
+  - platform: homeassistant
+    id: ha_last_reason
+    entity_id: input_text.hvplc_last_controller_reason

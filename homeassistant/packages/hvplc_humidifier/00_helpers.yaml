@@ -1,0 +1,278 @@
+input_boolean:
+  hvplc_humidifier_enabled:
+    name: HVPLC Humidifier Enabled
+    icon: mdi:air-humidifier
+    initial: true
+
+  hvplc_runtime_trip:
+    name: HVPLC Runtime Trip Active
+    icon: mdi:alert-octagon
+    initial: false
+
+input_number:
+  hvplc_humidity_min:
+    name: HVPLC Humidity Min
+    icon: mdi:water-minus
+    min: 20
+    max: 45
+    step: 1
+    mode: box
+    unit_of_measurement: "%"
+    initial: 30
+
+  hvplc_humidity_max:
+    name: HVPLC Humidity Max
+    icon: mdi:water-plus
+    min: 30
+    max: 50
+    step: 1
+    mode: box
+    unit_of_measurement: "%"
+    initial: 40
+
+  hvplc_curve_slope:
+    name: HVPLC Outdoor Compensation Slope
+    icon: mdi:chart-line
+    min: 0.1
+    max: 1.5
+    step: 0.05
+    mode: box
+    initial: 0.35
+
+  hvplc_manual_target_humidity:
+    name: HVPLC Manual Target Humidity
+    icon: mdi:target
+    min: 20
+    max: 50
+    step: 1
+    mode: slider
+    unit_of_measurement: "%"
+    initial: 35
+
+  hvplc_runtime_max_on_min:
+    name: HVPLC Runtime Max Continuous On
+    icon: mdi:timer-alert
+    min: 5
+    max: 90
+    step: 1
+    mode: box
+    unit_of_measurement: min
+    initial: 20
+
+  hvplc_runtime_min_off_min:
+    name: HVPLC Runtime Min Off Lockout
+    icon: mdi:timer-lock
+    min: 1
+    max: 30
+    step: 1
+    mode: box
+    unit_of_measurement: min
+    initial: 10
+
+  hvplc_runtime_hourly_cap_min:
+    name: HVPLC Runtime Hourly Cap
+    icon: mdi:clock-outline
+    min: 5
+    max: 60
+    step: 1
+    mode: box
+    unit_of_measurement: min
+    initial: 35
+
+  hvplc_dry_tolerance:
+    name: HVPLC Dry Tolerance
+    icon: mdi:water-percent-alert
+    min: 0.5
+    max: 5
+    step: 0.5
+    mode: box
+    unit_of_measurement: "%"
+    initial: 2
+
+  hvplc_wet_tolerance:
+    name: HVPLC Wet Tolerance
+    icon: mdi:water-percent
+    min: 0.5
+    max: 5
+    step: 0.5
+    mode: box
+    unit_of_measurement: "%"
+    initial: 1
+
+input_select:
+  hvplc_humidity_mode:
+    name: HVPLC Humidity Mode
+    icon: mdi:tune-variant
+    options:
+      - auto_curve
+      - manual
+    initial: auto_curve
+
+  hvplc_hvac_climate_entity:
+    name: HVPLC HVAC Climate Entity
+    icon: mdi:hvac
+    options:
+      - climate.ecobee
+    initial: climate.ecobee
+
+  hvplc_outdoor_temperature_entity:
+    name: HVPLC Outdoor Temperature Entity
+    icon: mdi:thermometer-chevron-down
+    options:
+      - sensor.openweathermap_dew_point
+      - sensor.openweathermap_feels_like_temperature
+      - sensor.openweathermap_temperature
+    initial: sensor.openweathermap_dew_point
+
+  hvplc_outdoor_humidity_entity:
+    name: HVPLC Outdoor Humidity Entity
+    icon: mdi:water-percent
+    options:
+      - sensor.openweathermap_humidity
+    initial: sensor.openweathermap_humidity
+
+  hvplc_indoor_humidity_entity_1:
+    name: HVPLC Indoor Humidity Sensor 1
+    icon: mdi:water-percent
+    options:
+      - none
+      - sensor.air_quality_monitor_humidity
+      - sensor.ecobee_current_humidity
+      - sensor.phy_temp_hum_sensor_humidity
+      - sensor.timmerflotte_temp_hmd_sensor_humidity
+    initial: sensor.air_quality_monitor_humidity
+
+  hvplc_indoor_humidity_entity_2:
+    name: HVPLC Indoor Humidity Sensor 2
+    icon: mdi:water-percent
+    options:
+      - none
+      - sensor.air_quality_monitor_humidity
+      - sensor.ecobee_current_humidity
+      - sensor.phy_temp_hum_sensor_humidity
+      - sensor.timmerflotte_temp_hmd_sensor_humidity
+    initial: sensor.ecobee_current_humidity
+
+  hvplc_indoor_humidity_entity_3:
+    name: HVPLC Indoor Humidity Sensor 3
+    icon: mdi:water-percent
+    options:
+      - none
+      - sensor.air_quality_monitor_humidity
+      - sensor.ecobee_current_humidity
+      - sensor.phy_temp_hum_sensor_humidity
+      - sensor.timmerflotte_temp_hmd_sensor_humidity
+    initial: sensor.phy_temp_hum_sensor_humidity
+
+  hvplc_indoor_humidity_entity_4:
+    name: HVPLC Indoor Humidity Sensor 4
+    icon: mdi:water-percent
+    options:
+      - none
+      - sensor.air_quality_monitor_humidity
+      - sensor.ecobee_current_humidity
+      - sensor.phy_temp_hum_sensor_humidity
+      - sensor.timmerflotte_temp_hmd_sensor_humidity
+    initial: none
+
+  hvplc_indoor_humidity_entity_5:
+    name: HVPLC Indoor Humidity Sensor 5
+    icon: mdi:water-percent
+    options:
+      - none
+      - sensor.air_quality_monitor_humidity
+      - sensor.ecobee_current_humidity
+      - sensor.phy_temp_hum_sensor_humidity
+      - sensor.timmerflotte_temp_hmd_sensor_humidity
+    initial: none
+
+  hvplc_indoor_temperature_entity_1:
+    name: HVPLC Indoor Temperature Sensor 1
+    icon: mdi:thermometer
+    options:
+      - none
+      - sensor.air_quality_monitor_temperature
+      - sensor.ecobee_current_temperature
+      - sensor.kid_s_room_temperature
+      - sensor.phy_temp_hum_sensor_temperature
+      - sensor.timmerflotte_temp_hmd_sensor_temperature
+      - sensor.tower_cpu_temperature
+      - sensor.tower_motherboard_temperature
+    initial: sensor.air_quality_monitor_temperature
+
+  hvplc_indoor_temperature_entity_2:
+    name: HVPLC Indoor Temperature Sensor 2
+    icon: mdi:thermometer
+    options:
+      - none
+      - sensor.air_quality_monitor_temperature
+      - sensor.ecobee_current_temperature
+      - sensor.kid_s_room_temperature
+      - sensor.phy_temp_hum_sensor_temperature
+      - sensor.timmerflotte_temp_hmd_sensor_temperature
+      - sensor.tower_cpu_temperature
+      - sensor.tower_motherboard_temperature
+    initial: sensor.ecobee_current_temperature
+
+  hvplc_indoor_temperature_entity_3:
+    name: HVPLC Indoor Temperature Sensor 3
+    icon: mdi:thermometer
+    options:
+      - none
+      - sensor.air_quality_monitor_temperature
+      - sensor.ecobee_current_temperature
+      - sensor.kid_s_room_temperature
+      - sensor.phy_temp_hum_sensor_temperature
+      - sensor.timmerflotte_temp_hmd_sensor_temperature
+      - sensor.tower_cpu_temperature
+      - sensor.tower_motherboard_temperature
+    initial: sensor.kid_s_room_temperature
+
+  hvplc_indoor_temperature_entity_4:
+    name: HVPLC Indoor Temperature Sensor 4
+    icon: mdi:thermometer
+    options:
+      - none
+      - sensor.air_quality_monitor_temperature
+      - sensor.ecobee_current_temperature
+      - sensor.kid_s_room_temperature
+      - sensor.phy_temp_hum_sensor_temperature
+      - sensor.timmerflotte_temp_hmd_sensor_temperature
+    initial: none
+
+  hvplc_indoor_temperature_entity_5:
+    name: HVPLC Indoor Temperature Sensor 5
+    icon: mdi:thermometer
+    options:
+      - none
+      - sensor.air_quality_monitor_temperature
+      - sensor.ecobee_current_temperature
+      - sensor.kid_s_room_temperature
+      - sensor.phy_temp_hum_sensor_temperature
+      - sensor.timmerflotte_temp_hmd_sensor_temperature
+    initial: none
+
+input_text:
+  hvplc_last_controller_reason:
+    name: HVPLC Last Controller Reason
+    icon: mdi:message-text-outline
+    max: 255
+    initial: startup
+
+  hvplc_ota_release_api_url:
+    name: HVPLC OTA Release API URL
+    icon: mdi:source-repository
+    max: 255
+    initial: "https://api.github.com/repos/gitcak/hvPLC/releases/latest"
+
+  hvplc_stamplc_installed_version_override:
+    name: HVPLC StamPLC Installed Version Override
+    icon: mdi:form-textbox
+    max: 32
+    initial: ""
+
+timer:
+  hvplc_humidifier_min_off_lockout:
+    name: HVPLC Humidifier Min Off Lockout
+    icon: mdi:timer-lock-outline
+    duration: "00:10:00"

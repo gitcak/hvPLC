@@ -1,0 +1,20 @@
+{
+  "git.path": "C:\\Program Files\\Git\\cmd\\git.exe",
+  "yaml.customTags": [
+    "!include scalar",
+    "!include_dir_list scalar",
+    "!include_dir_named scalar",
+    "!include_merge_list scalar",
+    "!secret scalar",
+    "!env_var scalar",
+    "!lambda scalar"
+  ],
+  "files.associations": {
+    "esphome/**/*.yaml": "esphome",
+    "esphome/**/*.yml": "esphome",
+    "homeassistant/**/*.yaml": "home-assistant",
+    "homeassistant/**/*.yml": "home-assistant"
+  },
+  "vscode-home-assistant.disableAutomaticFileAssociation": false,
+  "vscode-home-assistant.autoRenderTemplates": true
+}

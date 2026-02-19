@@ -1,0 +1,181 @@
+# StamPLC Humidifier Controller — Main Configuration
+# M5Stack StamPLC (ESP32-S3, ST7789V2 LCD, AW9523 + PI4IOE5V6408)
+#
+# Package structure:
+#   hardware.yaml    — SPI, I2C, expanders, relay, buttons, buzzer, sensors
+#   safety.yaml      — Globals, safety interval, number entities, diagnostics
+#   ha_sensors.yaml  — HA platform sensor imports for M5GFX GUI binding
+#   gui.yaml         — stamplc_m5gfx component configuration
+
+esphome:
+  name: stamplc-humidifier
+  friendly_name: StamPLC Humidifier Controller
+  min_version: 2025.8.0
+  project:
+    name: hvplc.stamplc_humidifier
+    version: ${firmware_version}
+  on_boot:
+    priority: 800
+    then:
+      - switch.turn_on: lcd_backlight
+      - switch.turn_off: humidifier_relay
+      - lambda: |-
+          id(last_on_ms) = 0;
+          id(last_off_ms) = millis();
+          id(min_off_lockout_active) = true;
+          id(continuous_runtime_trip) = false;
+          id(api_connected) = false;
+
+external_components:
+  - source: github://beormund/esphome-m5stamplc@main
+    components: [aw9523, lm75b, rx8130]
+  - source:
+      type: local
+      path: components
+    components: [stamplc_m5gfx]
+
+esp32:
+  flash_size: 8MB
+  variant: ESP32S3
+  framework:
+    type: esp-idf
+
+packages:
+  hardware: !include packages/hardware.yaml
+  safety: !include packages/safety.yaml
+  ha_sensors: !include packages/ha_sensors.yaml
+  gui: !include packages/gui.yaml
+
+logger:
+
+# Enter safe mode automatically if a bad OTA/app boot happens.
+# This gives you a recovery path without physical access.
+safe_mode:
+  boot_is_good_after: 1min
+  num_attempts: 10
+
+# Allow ESPHome Web / ESP Web Tools to provision Wi-Fi credentials over serial.
+# ESPHome Web Tools can present an Improv QR flow on supported clients.
+improv_serial:
+
+api:
+  encryption:
+    key: !secret api_key
+  reboot_timeout: 0s
+  on_client_connected:
+    then:
+      - lambda: |-
+          id(api_connected) = true;
+      - switch.turn_on: led_green
+      - switch.turn_off: led_red
+  on_client_disconnected:
+    then:
+      - lambda: |-
+          id(api_connected) = false;
+      - switch.turn_off: humidifier_relay
+      - switch.turn_on: led_red
+      - switch.turn_off: led_green
+
+# Base URL for OTA via HTTP (e.g. https://github.com/OWNER/hvPLC/releases/latest/download)
+# Set in secrets as ota_firmware_base_url; device will fetch firmware.ota.bin and firmware.md5 from here.
+substitutions:
+  firmware_version: "0.1.0"
+  ota_firmware_base_url: !secret ota_firmware_base_url
+  ota_firmware_bin_name: "firmware.ota.bin"
+  ota_firmware_md5_name: "firmware.md5"
+  wifi_ap_fallback_timeout: "5min"
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+  - platform: http_request
+    id: ota_http
+
+http_request:
+  timeout: 20s
+  verify_ssl: true
+  useragent: ESPHome/${firmware_version} (https://esphome.io)
+  follow_redirects: true
+  redirect_limit: 5
+
+script:
+  - id: ota_install_from_url
+    mode: single
+    then:
+      - logger.log: "Starting OTA from URL..."
+      - ota.http_request.flash:
+          url: ${ota_firmware_base_url}/${ota_firmware_bin_name}
+          md5_url: ${ota_firmware_base_url}/${ota_firmware_md5_name}
+      - logger.log: "OTA complete, rebooting"
+
+button:
+  - platform: template
+    name: "Check for Updates"
+    id: ota_check_updates_btn
+    on_press:
+      - homeassistant.event:
+          event: esphome.hvplc_stamplc_check_for_updates
+          data:
+            source: esphome_device
+            device: stamplc_humidifier
+
+  - platform: template
+    name: "Install OTA from release"
+    id: ota_install_from_release_btn
+    entity_category: config
+    on_press:
+      - script.execute: ota_install_from_url
+
+wifi:
+  id: wifi_main
+  # Keep radio fully awake for OTA stability.
+  power_save_mode: none
+  # If Wi-Fi is down too long, reboot and reconnect automatically.
+  reboot_timeout: 10min
+  on_disconnect:
+    then:
+      - switch.turn_off: humidifier_relay
+      - lambda: |-
+          id(api_connected) = false;
+      - switch.turn_on: led_red
+      - switch.turn_off: led_green
+  on_connect:
+    then:
+      - switch.turn_on: led_green
+      - switch.turn_off: led_red
+  ap:
+    # Used for initial provisioning via ESPHome Web / Improv Serial.
+    ssid: "StamPLC Humidifier Setup"
+    password: !secret wifi_ap_password
+    # Set substitution wifi_ap_fallback_timeout to "0s" to disable internal AP fallback.
+    ap_timeout: ${wifi_ap_fallback_timeout}
+
+captive_portal:
+
+time:
+  - platform: rx8130
+    id: rx8130_time
+    update_interval: 30min
+  - platform: sntp
+    id: sntp_time
+    on_time_sync:
+      then:
+        - rx8130.write_time:
+            id: rx8130_time
+
+text_sensor:
+  - platform: template
+    name: "StamPLC Firmware Version"
+    id: firmware_version_text
+    entity_category: diagnostic
+    update_interval: 6h
+    lambda: |-
+      return {"${firmware_version}"};
+
+  - platform: wifi_info
+    ip_address:
+      name: "StamPLC WiFi IP"
+      entity_category: diagnostic
+    ssid:
+      name: "StamPLC WiFi SSID"
+      entity_category: diagnostic

@@ -1,0 +1,70 @@
+automation:
+  - id: hvplc_sync_max_runtime_to_esphome
+    alias: HVPLC Sync Max Runtime To ESPHome
+    description: Push HA max continuous runtime value to ESPHome device number.
+    mode: single
+    trigger:
+      - trigger: state
+        entity_id: input_number.hvplc_runtime_max_on_min
+      - trigger: state
+        entity_id: number.stamplc_humidistat_stamplc_max_continuous_runtime_min
+        to: "available"
+    condition:
+      - condition: template
+        value_template: >
+          {{ has_value('number.stamplc_humidistat_stamplc_max_continuous_runtime_min')
+             and has_value('input_number.hvplc_runtime_max_on_min') }}
+    action:
+      - action: number.set_value
+        target:
+          entity_id: number.stamplc_humidistat_stamplc_max_continuous_runtime_min
+        data:
+          value: "{{ states('input_number.hvplc_runtime_max_on_min') | float }}"
+
+  - id: hvplc_sync_min_off_lockout_to_esphome
+    alias: HVPLC Sync Min Off Lockout To ESPHome
+    description: Push HA min-off lockout value to ESPHome device number.
+    mode: single
+    trigger:
+      - trigger: state
+        entity_id: input_number.hvplc_runtime_min_off_min
+      - trigger: state
+        entity_id: number.stamplc_humidistat_stamplc_min_off_lockout_min
+        to: "available"
+    condition:
+      - condition: template
+        value_template: >
+          {{ has_value('number.stamplc_humidistat_stamplc_min_off_lockout_min')
+             and has_value('input_number.hvplc_runtime_min_off_min') }}
+    action:
+      - action: number.set_value
+        target:
+          entity_id: number.stamplc_humidistat_stamplc_min_off_lockout_min
+        data:
+          value: "{{ states('input_number.hvplc_runtime_min_off_min') | float }}"
+
+  - id: hvplc_sync_esphome_values_on_connect
+    alias: HVPLC Sync ESPHome Values On Device Connect
+    description: Push both runtime values to ESPHome when the device comes online.
+    mode: single
+    trigger:
+      - trigger: state
+        entity_id: binary_sensor.stamplc_humidistat_stamplc_node_online
+        to: "on"
+    condition:
+      - condition: template
+        value_template: >
+          {{ has_value('input_number.hvplc_runtime_max_on_min')
+             and has_value('input_number.hvplc_runtime_min_off_min') }}
+    action:
+      - delay: "00:00:05"
+      - action: number.set_value
+        target:
+          entity_id: number.stamplc_humidistat_stamplc_max_continuous_runtime_min
+        data:
+          value: "{{ states('input_number.hvplc_runtime_max_on_min') | float }}"
+      - action: number.set_value
+        target:
+          entity_id: number.stamplc_humidistat_stamplc_min_off_lockout_min
+        data:
+          value: "{{ states('input_number.hvplc_runtime_min_off_min') | float }}"

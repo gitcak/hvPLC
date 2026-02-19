@@ -1,0 +1,103 @@
+automation:
+  - id: hvplc_safety_start_min_off_lockout_on_relay_off
+    alias: HVPLC Safety Start Min-Off Lockout On Relay Off
+    description: Start lockout timer each time humidifier relay turns off.
+    mode: restart
+    trigger:
+      - trigger: state
+        entity_id: switch.stamplc_humidistat_stamplc_humidifier_relay
+        from: "on"
+        to: "off"
+    action:
+      - action: timer.start
+        target:
+          entity_id: timer.hvplc_humidifier_min_off_lockout
+        data:
+          duration: "{{ '00:%02d:00' | format(states('input_number.hvplc_runtime_min_off_min') | int(10)) }}"
+
+  - id: hvplc_safety_clear_runtime_trip_after_lockout
+    alias: HVPLC Safety Clear Runtime Trip After Lockout
+    description: Clear runtime trip after lockout expires while relay remains off.
+    mode: single
+    trigger:
+      - trigger: state
+        entity_id: timer.hvplc_humidifier_min_off_lockout
+        to: "idle"
+    condition:
+      - condition: state
+        entity_id: switch.stamplc_humidistat_stamplc_humidifier_relay
+        state: "off"
+    action:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.hvplc_runtime_trip
+
+  - id: hvplc_safety_hard_stop_continuous_runtime
+    alias: HVPLC Safety Hard Stop Continuous Runtime
+    description: Force relay off when max continuous run duration is exceeded.
+    mode: single
+    trigger:
+      - trigger: time_pattern
+        minutes: "/1"
+    condition:
+      - condition: state
+        entity_id: switch.stamplc_humidistat_stamplc_humidifier_relay
+        state: "on"
+      - condition: template
+        value_template: >
+          {% set max_on_min = states('input_number.hvplc_runtime_max_on_min') | int(20) %}
+          {% set on_age_s = as_timestamp(now()) - as_timestamp(states.switch.stamplc_humidistat_stamplc_humidifier_relay.last_changed) %}
+          {{ on_age_s >= (max_on_min * 60) }}
+    action:
+      - action: switch.turn_off
+        target:
+          entity_id: switch.stamplc_humidistat_stamplc_humidifier_relay
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.hvplc_runtime_trip
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.hvplc_last_controller_reason
+        data:
+          value: "runtime_trip_continuous_on"
+      - action: timer.start
+        target:
+          entity_id: timer.hvplc_humidifier_min_off_lockout
+        data:
+          duration: "{{ '00:%02d:00' | format(states('input_number.hvplc_runtime_min_off_min') | int(10)) }}"
+
+  - id: hvplc_safety_shutdown_on_sensor_fault_or_stale_data
+    alias: HVPLC Safety Shutdown On Sensor Fault Or Stale Data
+    description: Fail off when critical humidity data is missing or stale.
+    mode: single
+    trigger:
+      - trigger: state
+        entity_id: binary_sensor.hvplc_critical_sensors_healthy
+        to: "off"
+      - trigger: time_pattern
+        minutes: "/2"
+    condition:
+      - condition: state
+        entity_id: switch.stamplc_humidistat_stamplc_humidifier_relay
+        state: "on"
+      - condition: template
+        value_template: >
+          {% set stale_limit_s = 900 %}
+          {% set indoor_ok = has_value('sensor.hvplc_indoor_humidity_mean') %}
+          {% set outdoor_ok = has_value('sensor.hvplc_outdoor_temperature') %}
+          {% if not indoor_ok or not outdoor_ok %}
+            true
+          {% else %}
+            {% set indoor_age = as_timestamp(now()) - as_timestamp(states.sensor.hvplc_indoor_humidity_mean.last_changed) %}
+            {% set outdoor_age = as_timestamp(now()) - as_timestamp(states.sensor.hvplc_outdoor_temperature.last_changed) %}
+            {{ indoor_age > stale_limit_s or outdoor_age > stale_limit_s or is_state('binary_sensor.hvplc_critical_sensors_healthy', 'off') }}
+          {% endif %}
+    action:
+      - action: switch.turn_off
+        target:
+          entity_id: switch.stamplc_humidistat_stamplc_humidifier_relay
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.hvplc_last_controller_reason
+        data:
+          value: "sensor_fault_or_stale_data"

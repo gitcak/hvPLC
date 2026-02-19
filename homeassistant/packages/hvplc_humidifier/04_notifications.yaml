@@ -1,0 +1,109 @@
+automation:
+  - id: hvplc_notification_interlock_blocking_demand
+    alias: HVPLC Notification Interlock Blocking Demand
+    description: Raise persistent notification when humidity demand is blocked by HVAC interlock.
+    mode: single
+    trigger:
+      - trigger: state
+        entity_id: binary_sensor.hvplc_humidity_demand
+        to: "on"
+        for:
+          minutes: 5
+    condition:
+      - condition: state
+        entity_id: input_boolean.hvplc_humidifier_enabled
+        state: "on"
+      - condition: state
+        entity_id: binary_sensor.hvplc_hvac_interlock_ok
+        state: "off"
+    action:
+      - action: persistent_notification.create
+        data:
+          title: "HVPLC: Interlock Blocking Humidification"
+          notification_id: hvplc_interlock_blocked
+          message: >
+            Humidity demand is active, but the HVAC interlock is not satisfied.
+            Check {{ states('input_select.hvplc_hvac_climate_entity') }} hvac_action and blower behavior.
+
+  - id: hvplc_notification_clear_interlock_blocked
+    alias: HVPLC Notification Clear Interlock Blocked
+    description: Clear interlock notification when interlock condition recovers.
+    mode: single
+    trigger:
+      - trigger: state
+        entity_id: binary_sensor.hvplc_hvac_interlock_ok
+        to: "on"
+    action:
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: hvplc_interlock_blocked
+
+  - id: hvplc_notification_sensor_fault
+    alias: HVPLC Notification Sensor Fault
+    description: Raise notification when critical sensors are unavailable.
+    mode: restart
+    trigger:
+      - trigger: state
+        entity_id: binary_sensor.hvplc_critical_sensors_healthy
+        id: critical_off
+        to: "off"
+        for:
+          minutes: 2
+      - trigger: state
+        entity_id: binary_sensor.hvplc_critical_sensors_healthy
+        id: critical_on
+        to: "on"
+    action:
+      - choose:
+          - conditions:
+              - condition: trigger
+                id: critical_off
+            sequence:
+              - action: persistent_notification.create
+                data:
+                  title: "HVPLC: Sensor Fault"
+                  notification_id: hvplc_sensor_fault
+                  message: >
+                    Critical humidity control sensors are unavailable or stale.
+                    Humidifier output is held off until data quality is restored.
+          - conditions:
+              - condition: trigger
+                id: critical_on
+            sequence:
+              - action: persistent_notification.dismiss
+                data:
+                  notification_id: hvplc_sensor_fault
+
+  - id: hvplc_notification_runtime_trip
+    alias: HVPLC Notification Runtime Trip
+    description: Raise/clear runtime safety trip notification.
+    mode: restart
+    trigger:
+      - trigger: state
+        entity_id: input_boolean.hvplc_runtime_trip
+        id: trip_on
+        to: "on"
+      - trigger: state
+        entity_id: input_boolean.hvplc_runtime_trip
+        id: trip_off
+        to: "off"
+    action:
+      - choose:
+          - conditions:
+              - condition: trigger
+                id: trip_on
+            sequence:
+              - action: persistent_notification.create
+                data:
+                  title: "HVPLC: Runtime Safety Trip"
+                  notification_id: hvplc_runtime_trip
+                  message: >
+                    Humidifier relay exceeded max continuous runtime and was forced off.
+                    Lockout timer is active before re-enable.
+          - conditions:
+              - condition: trigger
+                id: trip_off
+            sequence:
+              - action: persistent_notification.dismiss
+                data:
+                  notification_id: hvplc_runtime_trip

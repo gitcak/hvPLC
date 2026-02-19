@@ -1,0 +1,10 @@
+# M5GFX submodule local changes
+# Generated from: esphome/components/stamplc_m5gfx/libs/M5GFX
+#
+# Current state: submodule is "dirty" due to line-ending only
+# (idf_component.yml: LF will be replaced by CRLF). No content changes.
+#
+# To clear the dirty state from the parent repo:
+#   cd esphome/components/stamplc_m5gfx/libs/M5GFX && git checkout -- idf_component.yml
+# Or to normalize and commit in submodule:
+#   cd esphome/components/stamplc_m5gfx/libs/M5GFX && git add idf_component.yml && git commit -m "Normalize line endings"

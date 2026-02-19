@@ -1,0 +1,180 @@
+# StamPLC Hardware Configuration
+# M5Stack StamPLC: ESP32-S3, ST7789V2 LCD, PI4IOE5V6408 + AW9523 expanders
+# Display is owned by stamplc_m5gfx (M5GFX), not ESPHome display/LVGL.
+
+# --- Boot power for I2C expanders ---
+# GPIO3 must be HIGH on boot for AW9523 and PI4IOE5V6408 to initialize.
+# keep_on_time: 1000h = ~41 days (fits in uint32_t)
+power_supply:
+  id: pin3_output_high
+  pin:
+    number: 3
+    ignore_strapping_warning: true
+  enable_on_boot: true
+  keep_on_time: 1000h
+
+# --- I2C bus ---
+i2c:
+  sda: GPIO13
+  scl: GPIO15
+  scan: false
+
+# SPI bus is owned entirely by M5GFX (stamplc_m5gfx component).
+# Do NOT declare an ESPHome spi: block here; it causes a double-init conflict.
+
+# --- GPIO Expander 1: PI4IOE5V6408 ---
+# Buttons (pins 0-2), LED (pins 4-6), backlight (pin 7)
+pi4ioe5v6408:
+  - id: pi4ioe5v6408_hub
+    address: 0x43
+    # reset: true (default) ensures clean state; previous reset: false didn't help
+
+# --- GPIO Expander 2: AW9523 ---
+# Relays (pins 0-3), Inputs (pins 4-7, 12-15)
+aw9523:
+  - id: aw9523_hub
+    address: 0x59
+
+switch:
+  # --- LCD Backlight ---
+  # StamPLC: P7 LOW = on, HIGH = off. inverted:true gives switch ON -> pin LOW.
+  - platform: gpio
+    id: lcd_backlight
+    name: "LCD Backlight"
+    restore_mode: ALWAYS_ON
+    entity_category: config
+    pin:
+      pi4ioe5v6408: pi4ioe5v6408_hub
+      number: 7
+      inverted: true
+      mode:
+        output: true
+
+  # --- Humidifier Relay (AW9523 pin 0) ---
+  - platform: gpio
+    id: humidifier_relay
+    name: "StamPLC Humidifier Relay"
+    icon: mdi:air-humidifier
+    restore_mode: ALWAYS_OFF
+    pin:
+      aw9523: aw9523_hub
+      number: 0
+      mode:
+        output: true
+      inverted: false
+    on_turn_on:
+      - lambda: |-
+          const uint32_t off_elapsed = millis() - id(last_off_ms);
+          if (!id(api_connected) || id(continuous_runtime_trip) || (off_elapsed < (uint32_t)(id(min_off_lockout_min).state * 60.0f * 1000.0f))) {
+            id(humidifier_relay).turn_off();
+            return;
+          }
+          id(last_on_ms) = millis();
+    on_turn_off:
+      - lambda: |-
+          id(last_off_ms) = millis();
+
+  # --- RGB LED indicator (3-bit, 8 colors) ---
+  - platform: gpio
+    id: led_red
+    restore_mode: ALWAYS_OFF
+    internal: true
+    pin:
+      pi4ioe5v6408: pi4ioe5v6408_hub
+      number: 6
+      inverted: true
+      mode:
+        output: true
+  - platform: gpio
+    id: led_green
+    restore_mode: ALWAYS_OFF
+    internal: true
+    pin:
+      pi4ioe5v6408: pi4ioe5v6408_hub
+      number: 5
+      inverted: true
+      mode:
+        output: true
+  - platform: gpio
+    id: led_blue
+    restore_mode: ALWAYS_OFF
+    internal: true
+    pin:
+      pi4ioe5v6408: pi4ioe5v6408_hub
+      number: 4
+      inverted: true
+      mode:
+        output: true
+
+# --- Buttons A / B / C ---
+# GUI navigation is handled inside the stamplc_m5gfx component by reading these states.
+binary_sensor:
+  - platform: gpio
+    id: btn_a
+    name: "Button A"
+    internal: true
+    pin:
+      pi4ioe5v6408: pi4ioe5v6408_hub
+      number: 2
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+
+  - platform: gpio
+    id: btn_b
+    name: "Button B"
+    internal: true
+    pin:
+      pi4ioe5v6408: pi4ioe5v6408_hub
+      number: 1
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+
+  - platform: gpio
+    id: btn_c
+    name: "Button C"
+    internal: true
+    pin:
+      pi4ioe5v6408: pi4ioe5v6408_hub
+      number: 0
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+
+# --- Buzzer ---
+output:
+  - platform: ledc
+    pin: GPIO44
+    id: buzzer_output
+
+rtttl:
+  output: buzzer_output
+  id: buzzer
+
+# --- On-board sensors ---
+sensor:
+  # INA226 Voltage/Current (I2C 0x40)
+  - platform: ina226
+    shunt_resistance: 0.01
+    max_current: 8.192
+    bus_voltage:
+      name: "Bus Voltage"
+      id: bus_voltage
+      entity_category: diagnostic
+    current:
+      name: "Current"
+      entity_category: diagnostic
+    power:
+      name: "Power"
+      entity_category: diagnostic
+
+  # LM75B Temperature (I2C 0x48)
+  - platform: lm75b
+    name: "Board Temperature"
+    id: board_temp
+    update_interval: 60s
+    entity_category: diagnostic

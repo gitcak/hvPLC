@@ -1,0 +1,65 @@
+automation:
+  - id: hvplc_controller_evaluate_and_actuate
+    alias: HVPLC Controller Evaluate and Actuate
+    description: >
+      Main demand + permit + actuation policy for humidifier relay control.
+    mode: restart
+    trigger:
+      - trigger: state
+        entity_id:
+          - sensor.hvplc_indoor_humidity_mean
+          - sensor.hvplc_target_humidity
+          - binary_sensor.hvplc_humidity_demand
+          - binary_sensor.hvplc_hvac_interlock_ok
+          - binary_sensor.hvplc_runtime_cap_ok
+          - binary_sensor.hvplc_critical_sensors_healthy
+          - input_boolean.hvplc_humidifier_enabled
+          - input_boolean.hvplc_runtime_trip
+          - timer.hvplc_humidifier_min_off_lockout
+      - trigger: time_pattern
+        minutes: "/1"
+    action:
+      - variables:
+          enabled: "{{ is_state('input_boolean.hvplc_humidifier_enabled', 'on') }}"
+          demand: "{{ is_state('binary_sensor.hvplc_humidity_demand', 'on') }}"
+          interlock_ok: "{{ is_state('binary_sensor.hvplc_hvac_interlock_ok', 'on') }}"
+          runtime_cap_ok: "{{ is_state('binary_sensor.hvplc_runtime_cap_ok', 'on') }}"
+          sensors_healthy: "{{ is_state('binary_sensor.hvplc_critical_sensors_healthy', 'on') }}"
+          lockout_idle: "{{ is_state('timer.hvplc_humidifier_min_off_lockout', 'idle') }}"
+          runtime_trip_clear: "{{ is_state('input_boolean.hvplc_runtime_trip', 'off') }}"
+          permit: >
+            {{ enabled and sensors_healthy and interlock_ok and runtime_cap_ok and lockout_idle and runtime_trip_clear }}
+          reason: >
+            {% if not enabled %}
+              disabled
+            {% elif not sensors_healthy %}
+              sensor_fault
+            {% elif not interlock_ok %}
+              interlock_blocked
+            {% elif not runtime_cap_ok %}
+              hourly_runtime_cap_reached
+            {% elif not runtime_trip_clear %}
+              runtime_trip_active
+            {% elif not lockout_idle %}
+              min_off_lockout_active
+            {% elif demand %}
+              active_demand
+            {% else %}
+              target_satisfied
+            {% endif %}
+      - choose:
+          - conditions:
+              - "{{ permit and demand }}"
+            sequence:
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.stamplc_humidistat_stamplc_humidifier_relay
+        default:
+          - action: switch.turn_off
+            target:
+              entity_id: switch.stamplc_humidistat_stamplc_humidifier_relay
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.hvplc_last_controller_reason
+        data:
+          value: "{{ reason | trim }}"

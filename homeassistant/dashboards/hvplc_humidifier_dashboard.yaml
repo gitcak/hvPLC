@@ -1,0 +1,104 @@
+title: HVPLC Humidifier
+views:
+  - title: Humidifier
+    path: hvplc-humidifier
+    icon: mdi:air-humidifier
+    cards:
+      - type: markdown
+        content: "## Status"
+
+      - type: entities
+        title: Current Conditions
+        entities:
+          - entity: sensor.hvplc_indoor_humidity_mean
+          - entity: sensor.hvplc_indoor_temperature_mean
+          - entity: sensor.hvplc_outdoor_temperature
+          - entity: sensor.hvplc_outdoor_humidity
+          - entity: sensor.hvplc_target_humidity
+          - entity: switch.stamplc_humidistat_stamplc_humidifier_relay
+          - entity: binary_sensor.hvplc_hvac_interlock_ok
+          - entity: binary_sensor.hvplc_humidity_demand
+
+      - type: markdown
+        content: "## Controls"
+
+      - type: entities
+        title: Control Inputs
+        entities:
+          - entity: input_boolean.hvplc_humidifier_enabled
+          - entity: input_select.hvplc_humidity_mode
+          - entity: input_number.hvplc_humidity_min
+          - entity: input_number.hvplc_humidity_max
+          - entity: input_number.hvplc_manual_target_humidity
+          - entity: input_number.hvplc_curve_slope
+          - entity: input_number.hvplc_dry_tolerance
+          - entity: input_number.hvplc_wet_tolerance
+
+      - type: markdown
+        content: "## Source Selectors"
+
+      - type: entities
+        title: Sensor and HVAC Source Selection
+        entities:
+          - entity: input_select.hvplc_hvac_climate_entity
+          - entity: input_select.hvplc_outdoor_temperature_entity
+          - entity: input_select.hvplc_outdoor_humidity_entity
+          - entity: input_select.hvplc_indoor_humidity_entity_1
+          - entity: input_select.hvplc_indoor_humidity_entity_2
+          - entity: input_select.hvplc_indoor_humidity_entity_3
+          - entity: input_select.hvplc_indoor_temperature_entity_1
+          - entity: input_select.hvplc_indoor_temperature_entity_2
+          - entity: input_select.hvplc_indoor_temperature_entity_3
+
+      - type: markdown
+        content: "## Safety"
+
+      - type: entities
+        title: Runtime and Safety Limits
+        entities:
+          - entity: sensor.hvplc_relay_on_time_last_hour
+          - entity: sensor.hvplc_relay_on_time_last_hour_minutes
+          - entity: input_number.hvplc_runtime_hourly_cap_min
+          - entity: input_number.hvplc_runtime_max_on_min
+          - entity: input_number.hvplc_runtime_min_off_min
+          - entity: binary_sensor.hvplc_runtime_cap_ok
+          - entity: input_boolean.hvplc_runtime_trip
+          - entity: timer.hvplc_humidifier_min_off_lockout
+
+      - type: markdown
+        content: "## History (24h)"
+
+      - type: history-graph
+        hours_to_show: 24
+        entities:
+          - entity: sensor.hvplc_indoor_humidity_mean
+          - entity: sensor.hvplc_target_humidity
+          - entity: switch.stamplc_humidistat_stamplc_humidifier_relay
+          - entity: sensor.hvplc_relay_on_time_last_hour_minutes
+
+      - type: markdown
+        content: "## Troubleshooting"
+
+      - type: entities
+        title: Controller Health
+        entities:
+          - entity: binary_sensor.hvplc_critical_sensors_healthy
+          - entity: input_text.hvplc_last_controller_reason
+          - entity: sensor.hvplc_controller_last_triggered
+          - entity: sensor.hvplc_safety_last_triggered
+          - entity: automation.hvplc_controller_evaluate_and_actuate
+          - entity: automation.hvplc_safety_hard_stop_continuous_runtime
+          - entity: automation.hvplc_safety_shutdown_on_sensor_fault_or_stale_data
+
+      - type: markdown
+        content: "## OTA"
+
+      - type: entities
+        title: Firmware Update
+        entities:
+          - entity: button.stamplc_humidistat_check_for_updates
+          - entity: update.hvplc_stamplc_repo_firmware_update
+          - entity: sensor.stamplc_humidistat_stamplc_firmware_version
+          - entity: sensor.hvplc_repo_latest_release_tag
+          - entity: script.hvplc_ota_install_latest
+          - entity: script.hvplc_ota_check_for_updates

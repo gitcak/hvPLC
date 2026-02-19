@@ -1,0 +1,152 @@
+sensor:
+  - platform: rest
+    name: HVPLC Repo Latest Release Tag
+    unique_id: hvplc_repo_latest_release_tag
+    resource_template: "{{ states('input_text.hvplc_ota_release_api_url') }}"
+    method: GET
+    headers:
+      Accept: application/vnd.github+json
+      User-Agent: HomeAssistant-HVPLC
+      X-GitHub-Api-Version: "2022-11-28"
+    value_template: "{{ value_json.tag_name | default('unknown') }}"
+    json_attributes:
+      - html_url
+      - published_at
+      - name
+      - body
+    scan_interval: 21600
+    timeout: 30
+
+template:
+  - update:
+      - name: HVPLC StamPLC Repo Firmware Update
+        unique_id: hvplc_stamplc_repo_firmware_update
+        installed_version: >
+          {% set device_fw = states('sensor.stamplc_humidistat_stamplc_firmware_version') | trim %}
+          {% set fw_override = states('input_text.hvplc_stamplc_installed_version_override') | trim %}
+          {{ device_fw if device_fw not in ['unknown','unavailable','none',''] else fw_override }}
+        latest_version: "{{ states('sensor.hvplc_repo_latest_release_tag') | regex_replace(find='^v', replace='') }}"
+        release_url: "{{ state_attr('sensor.hvplc_repo_latest_release_tag', 'html_url') }}"
+        release_summary: >
+          {% set rel_name = state_attr('sensor.hvplc_repo_latest_release_tag', 'name') %}
+          {% set rel_date = state_attr('sensor.hvplc_repo_latest_release_tag', 'published_at') %}
+          {% if rel_name or rel_date %}
+            {{ rel_name | default('Release') }}{% if rel_date %} ({{ rel_date }}){% endif %}
+          {% else %}
+            Latest release detected from repository API.
+          {% endif %}
+        availability: >
+          {% set device_fw = states('sensor.stamplc_humidistat_stamplc_firmware_version') | trim %}
+          {% set fw_override = states('input_text.hvplc_stamplc_installed_version_override') | trim %}
+          {% set installed = device_fw if device_fw not in ['unknown','unavailable','none',''] else fw_override %}
+          {{ installed not in ['unknown','unavailable','none','']
+             and states('sensor.hvplc_repo_latest_release_tag') not in ['unknown','unavailable','none',''] }}
+        install:
+          - action: button.press
+            target:
+              entity_id: button.stamplc_humidistat_install_ota_from_release
+
+script:
+  hvplc_ota_check_for_updates:
+    alias: HVPLC OTA Check For Updates
+    description: Refresh release metadata, compare versions, and notify if update is available.
+    mode: single
+    sequence:
+      - action: homeassistant.update_entity
+        target:
+          entity_id: sensor.hvplc_repo_latest_release_tag
+      - delay: "00:00:02"
+      - variables:
+          device_fw: "{{ states('sensor.stamplc_humidistat_stamplc_firmware_version') | trim }}"
+          fw_override: "{{ states('input_text.hvplc_stamplc_installed_version_override') | trim }}"
+          installed: >
+            {{ device_fw if device_fw not in ['unknown','unavailable','none',''] else fw_override }}
+          latest_tag: "{{ states('sensor.hvplc_repo_latest_release_tag') | trim }}"
+          latest: "{{ latest_tag | regex_replace(find='^v', replace='') }}"
+          release_url: "{{ state_attr('sensor.hvplc_repo_latest_release_tag', 'html_url') | default('') }}"
+          update_ready: >
+            {{ installed not in ['unknown','unavailable','none','']
+               and latest not in ['unknown','unavailable','none','']
+               and installed != latest }}
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ update_ready }}"
+            sequence:
+              - action: persistent_notification.create
+                data:
+                  title: "HVPLC OTA: Update Available"
+                  notification_id: hvplc_ota_update_available
+                  message: >
+                    StamPLC firmware update available: installed={{ installed }}, latest={{ latest }}.
+                    Install from update entity update.hvplc_stamplc_repo_firmware_update or run script.hvplc_ota_install_latest.
+                    {% if release_url %}Release: {{ release_url }}{% endif %}
+          - conditions:
+              - condition: template
+                value_template: >
+                  {{ installed not in ['unknown','unavailable','none','']
+                     and latest not in ['unknown','unavailable','none','']
+                     and installed == latest }}
+            sequence:
+              - action: persistent_notification.create
+                data:
+                  title: "HVPLC OTA: No Update"
+                  notification_id: hvplc_ota_no_update
+                  message: >
+                    StamPLC firmware is current (installed={{ installed }}, latest={{ latest }}).
+          - conditions:
+              - condition: template
+                value_template: >
+                  {{ installed in ['unknown','unavailable','none','']
+                     or latest in ['unknown','unavailable','none',''] }}
+            sequence:
+              - action: persistent_notification.create
+                data:
+                  title: "HVPLC OTA: Check Failed"
+                  notification_id: hvplc_ota_check_failed
+                  message: >
+                    Unable to determine installed/latest version.
+                    installed='{{ installed }}', latest='{{ latest_tag }}'.
+                    Verify sensor.stamplc_humidistat_stamplc_firmware_version (or input_text.hvplc_stamplc_installed_version_override)
+                    and input_text.hvplc_ota_release_api_url.
+
+  hvplc_ota_install_latest:
+    alias: HVPLC OTA Install Latest
+    description: Trigger OTA install from release after sanity checks.
+    mode: single
+    sequence:
+      - action: homeassistant.update_entity
+        target:
+          entity_id: sensor.hvplc_repo_latest_release_tag
+      - delay: "00:00:02"
+      - variables:
+          latest_tag: "{{ states('sensor.hvplc_repo_latest_release_tag') | trim }}"
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ latest_tag in ['unknown','unavailable','none',''] }}"
+            sequence:
+              - action: persistent_notification.create
+                data:
+                  title: "HVPLC OTA: Install blocked"
+                  notification_id: hvplc_ota_install_blocked_no_release
+                  message: >
+                    Latest release tag could not be fetched. Check input_text.hvplc_ota_release_api_url.
+          - conditions:
+              - condition: template
+                value_template: "{{ latest_tag not in ['unknown','unavailable','none',''] }}"
+            sequence:
+              - action: button.press
+                target:
+                  entity_id: button.stamplc_humidistat_install_ota_from_release
+
+automation:
+  - id: hvplc_ota_check_requested_from_stamplc
+    alias: HVPLC OTA Check Requested From StamPLC
+    description: Handle check-for-updates event raised by StamPLC button.
+    mode: single
+    trigger:
+      - trigger: event
+        event_type: esphome.hvplc_stamplc_check_for_updates
+    action:
+      - action: script.hvplc_ota_check_for_updates

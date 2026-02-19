@@ -1,0 +1,9 @@
+[submodule "esphome/components/stamplc_m5gfx/libs/M5GFX"]
+	path = esphome/components/stamplc_m5gfx/libs/M5GFX
+	url = https://github.com/m5stack/M5GFX.git
+[submodule "esphome/components/stamplc_m5gfx/libs/mooncake"]
+	path = esphome/components/stamplc_m5gfx/libs/mooncake
+	url = https://github.com/Forairaaaaa/mooncake.git
+[submodule "esphome/components/stamplc_m5gfx/libs/smooth_ui_toolkit"]
+	path = esphome/components/stamplc_m5gfx/libs/smooth_ui_toolkit
+	url = https://github.com/Forairaaaaa/smooth_ui_toolkit.git

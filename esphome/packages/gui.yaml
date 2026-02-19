@@ -1,0 +1,32 @@
+# StamPLC M5GFX GUI Configuration
+
+stamplc_m5gfx:
+  id: gui_m5gfx
+  enable_display_driver: true
+  display_invert: true
+  indoor_humidity_sensor: ha_indoor_humidity
+  target_humidity_sensor: ha_target_humidity
+  outdoor_temp_sensor: ha_outdoor_temp
+  hourly_runtime_sensor: ha_hourly_runtime
+  board_temp_sensor: board_temp
+  bus_voltage_sensor: bus_voltage
+  wifi_signal_sensor: wifi_signal_sensor
+  uptime_sensor: uptime_sensor
+  humidity_demand_binary_sensor: ha_demand
+  interlock_ok_binary_sensor: ha_interlock_ok
+  sensors_healthy_binary_sensor: ha_sensors_healthy
+  runtime_cap_ok_binary_sensor: ha_runtime_cap_ok
+  runtime_trip_binary_sensor: runtime_trip_sensor
+  min_off_lockout_binary_sensor: min_off_lockout_sensor
+  api_connected_binary_sensor: api_connected_sensor
+  btn_a_binary_sensor: btn_a
+  btn_b_binary_sensor: btn_b
+  btn_c_binary_sensor: btn_c
+  mode_text_sensor: ha_humidity_mode
+  reason_text_sensor: ha_last_reason
+  humidifier_relay_switch: humidifier_relay
+  lcd_backlight_switch: lcd_backlight
+  max_runtime_number: max_continuous_runtime_min
+  min_off_lockout_number: min_off_lockout_min
+  buzzer_output: buzzer_output
+  time_id: rx8130_time

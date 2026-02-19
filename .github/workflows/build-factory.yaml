@@ -1,0 +1,143 @@
+name: Build Firmware Artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Optional tag to publish a release from this run (example: v0.1.0-beta.1)"
+        required: false
+        type: string
+      prerelease:
+        description: "Mark release as pre-release (only used when release_tag is set)"
+        required: false
+        default: true
+        type: boolean
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set Up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ESPHome
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install esphome==2026.1.5
+
+      - name: Prepare ESPHome Secrets (CI Ephemeral)
+        run: |
+          API_KEY="$(openssl rand -base64 32)"
+          OTA_PASSWORD="$(openssl rand -hex 16)"
+          mkdir -p artifacts
+          cat > esphome/secrets.yaml <<EOF
+          wifi_ap_password: "hvplc-setup-1234"
+          api_key: "${API_KEY}"
+          ota_password: "${OTA_PASSWORD}"
+          ota_firmware_base_url: "https://github.com/${{ github.repository }}/releases/latest/download"
+          EOF
+          cat > artifacts/pairing-info.txt <<EOF
+          stamplc-humidifier build pairing details
+          generated_at_utc: $(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          api_encryption_key: ${API_KEY}
+          ota_password: ${OTA_PASSWORD}
+          wifi_ap_password: hvplc-setup-1234
+          notes:
+            - Use api_encryption_key when adding the device in Home Assistant (ESPHome integration).
+            - Keep this file private.
+          EOF
+
+      - name: Build (ESPHome)
+        run: |
+          esphome compile esphome/stamplc_humidifier.yaml
+
+      - name: Upload Factory Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: stamplc-humidifier-factory
+          if-no-files-found: error
+          include-hidden-files: true
+          path: |
+            .esphome/build/**/firmware.factory.bin
+            esphome/.esphome/build/**/firmware.factory.bin
+
+      - name: Upload OTA Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: stamplc-humidifier-ota
+          if-no-files-found: error
+          include-hidden-files: true
+          path: |
+            .esphome/build/**/firmware.ota.bin
+            esphome/.esphome/build/**/firmware.ota.bin
+
+      - name: Upload Manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: stamplc-humidifier-manifest
+          if-no-files-found: warn
+          include-hidden-files: true
+          path: |
+            .esphome/build/**/manifest.json
+            esphome/.esphome/build/**/manifest.json
+
+      - name: Upload Pairing Info
+        uses: actions/upload-artifact@v4
+        with:
+          name: stamplc-humidifier-pairing
+          if-no-files-found: error
+          path: artifacts/pairing-info.txt
+
+      - name: Prepare OTA release assets
+        id: ota_assets
+        run: |
+          OTA_BIN="$(find .esphome/build esphome/.esphome/build -type f -name 'firmware.ota.bin' 2>/dev/null | head -n1)"
+          if [ -z "$OTA_BIN" ]; then
+            echo "firmware.ota.bin not found"
+            exit 1
+          fi
+          mkdir -p release
+          cp "$OTA_BIN" release/firmware.ota.bin
+          md5sum release/firmware.ota.bin | awk '{print $1}' > release/firmware.md5
+          echo "ota_bin=release/firmware.ota.bin" >> "$GITHUB_OUTPUT"
+          echo "md5_file=release/firmware.md5" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve release tag
+        id: release_meta
+        shell: bash
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ inputs.release_tag }}" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "tag=${{ inputs.release_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "tag=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release and upload OTA assets
+        if: steps.release_meta.outputs.publish == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_meta.outputs.tag }}
+          name: Release ${{ steps.release_meta.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          prerelease: ${{ github.ref_type != 'tag' && inputs.prerelease || false }}
+          files: |
+            release/firmware.ota.bin
+            release/firmware.md5
+          fail_on_unmatched_files: true

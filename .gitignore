@@ -1,0 +1,24 @@
+# Local secrets (keep only secrets.example.yaml in git)
+esphome/secrets.yaml
+
+# Local build/cache outputs
+.cache/
+artifacts/
+esphome/.esphome/
+
+# Common OS/editor junk
+.DS_Store
+Thumbs.db
+
+# Python cache
+**/__pycache__/
+
+.specstory/
+.claude/
+AGENT.md
+.cursor/
+.cursorignore
+.cursorindexingignore
+.public-mirror-exclude
+.public-mirror-include
+.yamllint

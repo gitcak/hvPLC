@@ -1,0 +1,120 @@
+# StamPLC Safety Logic
+# Device-level fail-off enforcement, runtime limits, lockout timers.
+# Operates independently of Home Assistant for defense-in-depth.
+
+globals:
+  - id: last_on_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: "0"
+  - id: last_off_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: "0"
+  - id: min_off_lockout_active
+    type: bool
+    restore_value: no
+    initial_value: "true"
+  - id: continuous_runtime_trip
+    type: bool
+    restore_value: no
+    initial_value: "false"
+  - id: api_connected
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+# --- Configurable safety limits ---
+number:
+  - platform: template
+    name: "StamPLC Max Continuous Runtime (min)"
+    id: max_continuous_runtime_min
+    icon: mdi:timer-alert-outline
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    min_value: 1
+    max_value: 120
+    step: 1
+    initial_value: 20
+
+  - platform: template
+    name: "StamPLC Min Off Lockout (min)"
+    id: min_off_lockout_min
+    icon: mdi:timer-lock-outline
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    min_value: 1
+    max_value: 60
+    step: 1
+    initial_value: 10
+
+# --- Diagnostic binary sensors ---
+binary_sensor:
+  - platform: status
+    name: "StamPLC Node Online"
+    entity_category: diagnostic
+
+  - platform: template
+    name: "StamPLC API Connected"
+    id: api_connected_sensor
+    entity_category: diagnostic
+
+  - platform: template
+    name: "StamPLC Min Off Lockout Active"
+    id: min_off_lockout_sensor
+    entity_category: diagnostic
+
+  - platform: template
+    name: "StamPLC Continuous Runtime Trip"
+    id: runtime_trip_sensor
+    entity_category: diagnostic
+
+# --- Diagnostic sensors ---
+sensor:
+  - platform: wifi_signal
+    name: "StamPLC WiFi Signal"
+    id: wifi_signal_sensor
+    update_interval: 30s
+    entity_category: diagnostic
+
+  - platform: uptime
+    name: "StamPLC Uptime"
+    id: uptime_sensor
+    update_interval: 60s
+    entity_category: diagnostic
+
+# --- Safety enforcement interval (5s) ---
+interval:
+  - interval: 5s
+    then:
+      - lambda: |-
+          const uint32_t now_ms = millis();
+          const uint32_t max_on_ms = (uint32_t)(id(max_continuous_runtime_min).state * 60.0f * 1000.0f);
+          const uint32_t min_off_ms = (uint32_t)(id(min_off_lockout_min).state * 60.0f * 1000.0f);
+          const bool relay_on = id(humidifier_relay).state;
+
+          // Update lockout state
+          id(min_off_lockout_active) = (now_ms - id(last_off_ms)) < min_off_ms;
+
+          // Force off if API disconnected while relay is on
+          if (!id(api_connected) && relay_on) {
+            id(humidifier_relay).turn_off();
+          }
+
+          // Force off if max continuous runtime exceeded
+          if (relay_on && id(last_on_ms) > 0 && (now_ms - id(last_on_ms) >= max_on_ms)) {
+            id(continuous_runtime_trip) = true;
+            id(humidifier_relay).turn_off();
+          }
+
+          // Clear runtime trip when relay off and lockout expired
+          if (!relay_on && !id(min_off_lockout_active)) {
+            id(continuous_runtime_trip) = false;
+          }
+
+          // Publish diagnostic states derived from globals.
+          id(api_connected_sensor).publish_state(id(api_connected));
+          id(min_off_lockout_sensor).publish_state(id(min_off_lockout_active));
+          id(runtime_trip_sensor).publish_state(id(continuous_runtime_trip));

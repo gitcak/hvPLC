@@ -1,0 +1,218 @@
+sensor:
+  - platform: history_stats
+    name: HVPLC Relay On Time Last Hour
+    unique_id: hvplc_relay_on_time_last_hour
+    entity_id: switch.stamplc_humidistat_stamplc_humidifier_relay
+    state: "on"
+    type: time
+    duration:
+      hours: 1
+    end: "{{ now() }}"
+
+template:
+  - sensor:
+      - name: HVPLC Indoor Humidity Mean
+        unique_id: hvplc_indoor_humidity_mean
+        unit_of_measurement: "%"
+        state_class: measurement
+        availability: >
+          {% set ids = [
+            states('input_select.hvplc_indoor_humidity_entity_1') | trim,
+            states('input_select.hvplc_indoor_humidity_entity_2') | trim,
+            states('input_select.hvplc_indoor_humidity_entity_3') | trim,
+            states('input_select.hvplc_indoor_humidity_entity_4') | trim,
+            states('input_select.hvplc_indoor_humidity_entity_5') | trim
+          ] %}
+          {% set ns = namespace(count=0) %}
+          {% for entity_id in ids %}
+            {% if entity_id and entity_id | lower != 'none' and has_value(entity_id) %}
+              {% set ns.count = ns.count + 1 %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.count > 0 }}
+        state: >
+          {% set ids = [
+            states('input_select.hvplc_indoor_humidity_entity_1') | trim,
+            states('input_select.hvplc_indoor_humidity_entity_2') | trim,
+            states('input_select.hvplc_indoor_humidity_entity_3') | trim,
+            states('input_select.hvplc_indoor_humidity_entity_4') | trim,
+            states('input_select.hvplc_indoor_humidity_entity_5') | trim
+          ] %}
+          {% set ns = namespace(total=0, count=0) %}
+          {% for entity_id in ids %}
+            {% if entity_id and entity_id | lower != 'none' and has_value(entity_id) %}
+              {% set ns.total = ns.total + (states(entity_id) | float(0)) %}
+              {% set ns.count = ns.count + 1 %}
+            {% endif %}
+          {% endfor %}
+          {{ (ns.total / ns.count) | round(1) if ns.count > 0 else none }}
+
+      - name: HVPLC Indoor Temperature Mean
+        unique_id: hvplc_indoor_temperature_mean
+        unit_of_measurement: "°F"
+        device_class: temperature
+        state_class: measurement
+        availability: >
+          {% set ids = [
+            states('input_select.hvplc_indoor_temperature_entity_1') | trim,
+            states('input_select.hvplc_indoor_temperature_entity_2') | trim,
+            states('input_select.hvplc_indoor_temperature_entity_3') | trim,
+            states('input_select.hvplc_indoor_temperature_entity_4') | trim,
+            states('input_select.hvplc_indoor_temperature_entity_5') | trim
+          ] %}
+          {% set ns = namespace(count=0) %}
+          {% for entity_id in ids %}
+            {% if entity_id and entity_id | lower != 'none' and has_value(entity_id) %}
+              {% set ns.count = ns.count + 1 %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.count > 0 }}
+        state: >
+          {% set ids = [
+            states('input_select.hvplc_indoor_temperature_entity_1') | trim,
+            states('input_select.hvplc_indoor_temperature_entity_2') | trim,
+            states('input_select.hvplc_indoor_temperature_entity_3') | trim,
+            states('input_select.hvplc_indoor_temperature_entity_4') | trim,
+            states('input_select.hvplc_indoor_temperature_entity_5') | trim
+          ] %}
+          {% set ns = namespace(total=0, count=0) %}
+          {% for entity_id in ids %}
+            {% if entity_id and entity_id | lower != 'none' and has_value(entity_id) %}
+              {% set ns.total = ns.total + (states(entity_id) | float(0)) %}
+              {% set ns.count = ns.count + 1 %}
+            {% endif %}
+          {% endfor %}
+          {{ (ns.total / ns.count) | round(1) if ns.count > 0 else none }}
+
+      - name: HVPLC Outdoor Temperature
+        unique_id: hvplc_outdoor_temperature
+        unit_of_measurement: "°F"
+        device_class: temperature
+        state_class: measurement
+        availability: >
+          {% set outdoor_entity = states('input_select.hvplc_outdoor_temperature_entity') | trim %}
+          {{ outdoor_entity and outdoor_entity | lower != 'none' and has_value(outdoor_entity) }}
+        state: >
+          {% set outdoor_entity = states('input_select.hvplc_outdoor_temperature_entity') | trim %}
+          {% set raw_temp = states(outdoor_entity) | float(0) %}
+          {% set sensor_uom = state_attr(outdoor_entity, 'unit_of_measurement') %}
+          {% if sensor_uom == '°C' %}
+            {{ ((raw_temp * 9 / 5) + 32) | round(1) }}
+          {% else %}
+            {{ raw_temp | round(1) }}
+          {% endif %}
+
+      - name: HVPLC Outdoor Humidity
+        unique_id: hvplc_outdoor_humidity
+        unit_of_measurement: "%"
+        device_class: humidity
+        state_class: measurement
+        availability: >
+          {% set outdoor_entity = states('input_select.hvplc_outdoor_humidity_entity') | trim %}
+          {{ outdoor_entity and outdoor_entity | lower != 'none' and has_value(outdoor_entity) }}
+        state: >
+          {% set outdoor_entity = states('input_select.hvplc_outdoor_humidity_entity') | trim %}
+          {{ states(outdoor_entity) | float(0) | round(1) }}
+
+      - name: HVPLC Target Humidity
+        unique_id: hvplc_target_humidity
+        unit_of_measurement: "%"
+        state_class: measurement
+        availability: >
+          {{ has_value('input_number.hvplc_humidity_min')
+             and has_value('input_number.hvplc_humidity_max')
+             and has_value('input_number.hvplc_manual_target_humidity')
+             and has_value('input_number.hvplc_curve_slope') }}
+        state: >
+          {% set min_h = states('input_number.hvplc_humidity_min') | float(30) %}
+          {% set max_h = states('input_number.hvplc_humidity_max') | float(40) %}
+          {% set manual_h = states('input_number.hvplc_manual_target_humidity') | float(35) %}
+          {% set slope = states('input_number.hvplc_curve_slope') | float(0.35) %}
+          {% set mode = states('input_select.hvplc_humidity_mode') %}
+          {% if mode == 'manual' %}
+            {% set raw_target = manual_h %}
+          {% elif has_value('sensor.hvplc_outdoor_temperature') %}
+            {% set outdoor_f = states('sensor.hvplc_outdoor_temperature') | float(32) %}
+            {% set deficit = [40 - outdoor_f, 0] | max %}
+            {% set raw_target = max_h - (deficit * slope) %}
+          {% else %}
+            {% set raw_target = (min_h + max_h) / 2 %}
+          {% endif %}
+          {{ [ [raw_target, min_h] | max, max_h ] | min | round(1) }}
+
+      - name: HVPLC Relay On Time Last Hour Minutes
+        unique_id: hvplc_relay_on_time_last_hour_minutes
+        unit_of_measurement: min
+        state_class: measurement
+        availability: "{{ has_value('sensor.hvplc_relay_on_time_last_hour') }}"
+        state: >
+          {{ (states('sensor.hvplc_relay_on_time_last_hour') | float(0) * 60) | round(1) }}
+
+      - name: HVPLC Controller Last Triggered
+        unique_id: hvplc_controller_last_triggered
+        icon: mdi:history
+        state: >
+          {% set ts = state_attr('automation.hvplc_controller_evaluate_and_actuate', 'last_triggered') %}
+          {{ ts if ts is not none else 'never' }}
+
+      - name: HVPLC Safety Last Triggered
+        unique_id: hvplc_safety_last_triggered
+        icon: mdi:history
+        state: >
+          {% set ts = state_attr('automation.hvplc_safety_hard_stop_continuous_runtime', 'last_triggered') %}
+          {{ ts if ts is not none else 'never' }}
+
+  - binary_sensor:
+      - name: HVPLC HVAC Interlock OK
+        unique_id: hvplc_hvac_interlock_ok
+        icon: mdi:hvac
+        availability: >
+          {% set hvac_entity = states('input_select.hvplc_hvac_climate_entity') | trim %}
+          {{ hvac_entity and hvac_entity | lower != 'none' and state_attr(hvac_entity, 'hvac_action') is not none }}
+        state: >
+          {% set hvac_entity = states('input_select.hvplc_hvac_climate_entity') | trim %}
+          {% set hvac_action = state_attr(hvac_entity, 'hvac_action') | lower %}
+          {{ hvac_action in ['heating', 'fan', 'fan_only'] }}
+
+      - name: HVPLC Runtime Cap OK
+        unique_id: hvplc_runtime_cap_ok
+        icon: mdi:gauge
+        availability: >
+          {{ has_value('sensor.hvplc_relay_on_time_last_hour_minutes')
+             and has_value('input_number.hvplc_runtime_hourly_cap_min') }}
+        state: >
+          {% set runtime_min = states('sensor.hvplc_relay_on_time_last_hour_minutes') | float(0) %}
+          {% set cap_min = states('input_number.hvplc_runtime_hourly_cap_min') | float(35) %}
+          {{ runtime_min < cap_min }}
+
+      - name: HVPLC Humidity Demand
+        unique_id: hvplc_humidity_demand
+        icon: mdi:air-humidifier
+        availability: >
+          {{ has_value('sensor.hvplc_indoor_humidity_mean')
+             and has_value('sensor.hvplc_target_humidity')
+             and has_value('input_number.hvplc_dry_tolerance')
+             and has_value('input_number.hvplc_wet_tolerance') }}
+        state: >
+          {% set indoor = states('sensor.hvplc_indoor_humidity_mean') | float(0) %}
+          {% set target = states('sensor.hvplc_target_humidity') | float(35) %}
+          {% set dry_tol = states('input_number.hvplc_dry_tolerance') | float(2) %}
+          {% set wet_tol = states('input_number.hvplc_wet_tolerance') | float(1) %}
+          {% set relay_on = is_state('switch.stamplc_humidistat_stamplc_humidifier_relay', 'on') %}
+          {% if indoor <= (target - dry_tol) %}
+            true
+          {% elif indoor >= (target + wet_tol) %}
+            false
+          {% else %}
+            {{ relay_on }}
+          {% endif %}
+
+      - name: HVPLC Critical Sensors Healthy
+        unique_id: hvplc_critical_sensors_healthy
+        icon: mdi:shield-check
+        state: >
+          {{ has_value('sensor.hvplc_indoor_humidity_mean')
+             and has_value('sensor.hvplc_indoor_temperature_mean')
+             and has_value('sensor.hvplc_target_humidity')
+             and has_value('sensor.hvplc_outdoor_temperature')
+             and has_value('sensor.hvplc_outdoor_humidity') }}
