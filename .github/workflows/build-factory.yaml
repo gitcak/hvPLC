@@ -100,7 +100,7 @@ jobs:
           if-no-files-found: error
           path: artifacts/pairing-info.txt
 
-      - name: Prepare OTA release assets
+      - name: Prepare release assets
         id: ota_assets
         run: |
           OTA_BIN="$(find .esphome/build esphome/.esphome/build -type f -name 'firmware.ota.bin' 2>/dev/null | head -n1)"
@@ -108,10 +108,17 @@ jobs:
             echo "firmware.ota.bin not found"
             exit 1
           fi
+          FACTORY_BIN="$(find .esphome/build esphome/.esphome/build -type f -name 'firmware.factory.bin' 2>/dev/null | head -n1)"
+          if [ -z "$FACTORY_BIN" ]; then
+            echo "firmware.factory.bin not found"
+            exit 1
+          fi
           mkdir -p release
           cp "$OTA_BIN" release/firmware.ota.bin
+          cp "$FACTORY_BIN" release/firmware.factory.bin
           md5sum release/firmware.ota.bin | awk '{print $1}' > release/firmware.md5
           echo "ota_bin=release/firmware.ota.bin" >> "$GITHUB_OUTPUT"
+          echo "factory_bin=release/firmware.factory.bin" >> "$GITHUB_OUTPUT"
           echo "md5_file=release/firmware.md5" >> "$GITHUB_OUTPUT"
 
       - name: Resolve release tag
@@ -129,7 +136,7 @@ jobs:
             echo "tag=" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Create GitHub Release and upload OTA assets
+      - name: Create GitHub Release and upload firmware assets
         if: steps.release_meta.outputs.publish == 'true'
         uses: softprops/action-gh-release@v2
         with:
@@ -139,5 +146,6 @@ jobs:
           prerelease: ${{ github.ref_type != 'tag' && inputs.prerelease || false }}
           files: |
             release/firmware.ota.bin
+            release/firmware.factory.bin
             release/firmware.md5
           fail_on_unmatched_files: true
