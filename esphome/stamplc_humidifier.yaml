@@ -83,6 +83,7 @@ substitutions:
   ota_firmware_base_url: !secret ota_firmware_base_url
   ota_firmware_bin_name: "firmware.ota.bin"
   ota_firmware_md5_name: "firmware.md5"
+  ota_manifest_name: "manifest.json"
   wifi_ap_fallback_timeout: "5min"
 
 ota:
@@ -97,6 +98,12 @@ http_request:
   useragent: ESPHome/${firmware_version} (https://esphome.io)
   follow_redirects: true
   redirect_limit: 5
+
+update:
+  - platform: http_request
+    id: firmware_update_http
+    name: "StamPLC Firmware"
+    source: ${ota_firmware_base_url}/${ota_manifest_name}
 
 script:
   - id: ota_install_from_url

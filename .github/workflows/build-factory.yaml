@@ -85,16 +85,6 @@ jobs:
             .esphome/build/**/firmware.ota.bin
             esphome/.esphome/build/**/firmware.ota.bin
 
-      - name: Upload Manifest
-        uses: actions/upload-artifact@v4
-        with:
-          name: stamplc-humidifier-manifest
-          if-no-files-found: warn
-          include-hidden-files: true
-          path: |
-            .esphome/build/**/manifest.json
-            esphome/.esphome/build/**/manifest.json
-
       - name: Upload Pairing Info
         uses: actions/upload-artifact@v4
         with:
@@ -115,13 +105,46 @@ jobs:
             echo "firmware.factory.bin not found"
             exit 1
           fi
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            VERSION_LABEL="${{ github.ref_name }}"
+          elif [ -n "${{ inputs.release_tag }}" ]; then
+            VERSION_LABEL="${{ inputs.release_tag }}"
+          else
+            VERSION_LABEL="${{ github.sha }}"
+          fi
           mkdir -p release
           cp "$OTA_BIN" release/firmware.ota.bin
           cp "$FACTORY_BIN" release/firmware.factory.bin
-          md5sum release/firmware.ota.bin | awk '{print $1}' > release/firmware.md5
+          OTA_MD5="$(md5sum release/firmware.ota.bin | awk '{print $1}')"
+          echo "$OTA_MD5" > release/firmware.md5
+          cat > release/manifest.json <<EOF
+          {
+            "name": "StamPLC Humidifier Controller",
+            "version": "${VERSION_LABEL}",
+            "home_assistant_domain": "esphome",
+            "new_install_prompt_erase": true,
+            "builds": [
+              {
+                "chipFamily": "ESP32-S3",
+                "parts": [
+                  { "path": "firmware.factory.bin", "offset": 0 },
+                  { "path": "firmware.ota.bin", "md5": "${OTA_MD5}" }
+                ]
+              }
+            ]
+          }
+          EOF
           echo "ota_bin=release/firmware.ota.bin" >> "$GITHUB_OUTPUT"
+          echo "manifest=release/manifest.json" >> "$GITHUB_OUTPUT"
           echo "factory_bin=release/firmware.factory.bin" >> "$GITHUB_OUTPUT"
           echo "md5_file=release/firmware.md5" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: stamplc-humidifier-manifest
+          if-no-files-found: error
+          path: release/manifest.json
 
       - name: Resolve release tag
         id: release_meta
@@ -148,6 +171,7 @@ jobs:
           prerelease: ${{ github.ref_type != 'tag' && inputs.prerelease || false }}
           files: |
             release/firmware.ota.bin
+            release/manifest.json
             release/firmware.factory.bin
             release/firmware.md5
           fail_on_unmatched_files: true
